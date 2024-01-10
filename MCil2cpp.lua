@@ -6,7 +6,7 @@ Il2cpp()
 --modes0: patch, modes1: memoize
 --flags0: patch, flags1: reverts
 --icon: game guardian floating icon state
-cases = {current = "normal", memoize = {stores = {}, restore = {}}, flags = {icon = false, modes = 0, declass = 0, flags = 0}}
+cases = {current = "normal", memoize = {stores = {}, restores = {}}, flags = {icon = false, modes = 0, declass = 0, flags = 0}}
 
 ------------------------------
 ---[ FIELDS PROCESSOR ]
@@ -96,27 +96,27 @@ function fields_memoize(objects, cpp, knx)
 	if not cpp:GetFieldWithName(knx.field_name) then
 		return
 	end
-	cases.memoize.restore[cases.current]['fields'] = {}
-	cases.memoize.store[cases.current]['fields'] = {}
+	cases.memoize.restores[cases.current]['fields'] = {}
+	cases.memoize.stores[cases.current]['fields'] = {}
 	for i = 1, #objects do
 		if knx.flags == 99 then
 			local str = Il2cpp.String.From(objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16))
 			if str then
 				if knx.original == nil then
-					cases.memoize.restore[cases.current]['fields'][#cases.memoize.restore[cases.current]['fields'] + 1] = {
-						address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
+					cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = {
+						address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
 						value = str:ReadString(),
 						flags = knx.flags
 					}
 				elseif type(knx.original) == 'table' then
-					cases.memoize.restore[cases.current]['fields'][#cases.memoize.restore[cases.current]['fields'] + 1] = {
-							address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
+					cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = {
+							address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
 							value = knx.original[objects[i].Access],
 							flags = knx.flags
 						}
 				else
-					cases.memoize.restore[cases.current]['fields'][#cases.memoize.restore[cases.current]['fields'] + 1] = {
-						address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
+					cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = {
+						address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
 						value = knx.original,
 						flags = knx.flags
 					}
@@ -124,20 +124,20 @@ function fields_memoize(objects, cpp, knx)
 			end
 		else
 			if knx.original == nil then
-				cases.memoize.restore[cases.current]['fields'][#cases.memoize.restore[cases.current]['fields'] + 1] = {
-					address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
-					value = gg.getValues(objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16))[1].value,
+				cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = {
+					address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
+					value = gg.getValues(objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16))[1].value,
 					flags = knx.flags
 				}
 			elseif type(knx.original) == 'table' then
-				cases.memoize.restore[cases.current]['fields'][#cases.memoize.restore[cases.current]['fields'] + 1] = {
-					address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
+				cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = {
+					address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
 					value = knx.original[objects[i].Access],
 					flags = knx.flags
 				}
 			else
-				cases.memoize.restore[cases.current]['fields'][#cases.memoize.restore[cases.current]['fields'] + 1] = {
-					address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
+				cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = {
+					address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
 					value = knx.original,
 					flags = knx.flags
 				}
@@ -145,18 +145,19 @@ function fields_memoize(objects, cpp, knx)
 		end
 		if type(knx.patches) == 'table' then
 			cases.memoize.stores[cases.current]['fields'][#cases.memoize.stores[cases.current]['fields'] + 1] = {
-				address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
+				address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
 				value = knx.patches[objects[i].Access],
 				flags = knx.flags
 			}
 		else
 			cases.memoize.stores[cases.current]['fields'][#cases.memoize.stores[cases.current]['fields'] + 1] = {
-				address = objects[i].address + tonumber(v:GetFieldWithName(knx.field_name).Offset, 16),
+				address = objects[i].address + tonumber(cpp:GetFieldWithName(knx.field_name).Offset, 16),
 				value = knx.patches,
 				flags = knx.flags
 			}
 		end
 	end
+	apply_memo()
 end
 
 ------------------------------
@@ -215,43 +216,43 @@ function methods_patch(cpp, knx)
 end
 
 function methods_memoize(cpp, knx)
-	cases.memoize.restore[cases.current]['methods'] = {}
-	cases.memoize.store[cases.current]['methods'] = {}
+	cases.memoize.restores[cases.current]['methods'] = {}
+	cases.memoize.stores[cases.current]['methods'] = {}
 	for i = 1, #cpp do
 		if knx.original == nil then
 			local strings, occurence = knx.patches:gsub('\\x', '')
 			local buffers = #strings / 2
 			if knx.offset then
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16) + tonumber(knx.offset, 16),
 					value = const(tonumber(cpp[i].AddressInMemory, 16), buffers)
 				}
 			else
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16),
 					value = const(tonumber(cpp[i].AddressInMemory, 16), buffers)
 				}
 			end
 		elseif type(knx.original) == 'table' then
 			if knx.offset then
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16) + tonumber(knx.offset, 16),
 					value = knx.original[cpp[i].Access]
 				}
 			else
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16),
 					value = knx.original[cpp[i].Access]
 				}
 			end
 		else
 			if knx.offset then
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16) + tonumber(knx.offset, 16),
 					value = knx.original
 				}
 			else
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16),
 					value = knx.original
 				}
@@ -259,30 +260,31 @@ function methods_memoize(cpp, knx)
 		end
 		if type(knx.patches) == 'table' then
 			if knx.offset then
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16) + tonumber(knx.offset, 16),
 					value = knx.patches[cpp[i].Access]
 				}
 			else
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16),
 					value = knx.patches[cpp[i].Access]
 				}
 			end
 		else
 			if knx.offset then
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16) + tonumber(knx.offset, 16),
 					value = knx.patches
 				}
 			else
-				cases.memoize.restore[cases.current]['methods'][#cases.memoize.restore[cases.current]['methods'] + 1] = {
+				cases.memoize.restores[cases.current]['methods'][#cases.memoize.restores[cases.current]['methods'] + 1] = {
 					address = tonumber(cpp[i].AddressInMemory, 16),
 					value = knx.patches
 				}
 			end
 		end
 	end
+	apply_memo()
 end
 
 ------------------------------
@@ -384,19 +386,23 @@ end
 ------------------------------
 ---[ SCRIPT PROCESSOR ]
 ------------------------------
-function processor()
-	local flags = false
-	for keys, value in ipairs(knx) do
-		if cases.memoize.stores[cases.current] == nil or knx.flags ~= 0 then
-			unclass_processor(value)
-		else
-			local flags = true
-			break
+function processor(current, unclass, mode, flag, reset)
+	cases.current = current
+	cases.flags = {declass = unclass, modes = mode, flags = flag}
+	if mode == 1 then
+		if (cases.memoize.stores[cases.current] == nil) or (reset == 1) then
+			cases.memoize.stores[cases.current] = {}
+			cases.memoize.restores[cases.current] = {}
+		elseif (cases.memoize.stores[cases.current] ~= nil) then
+			if cases.flags.flags == 0 then
+				cases.flags.flags = 1
+			else
+				cases.flags.flags = 0
+			end
 		end
 	end
-	if flags == true then
-		switcher()
-		apply_memo()
+	for keys, value in ipairs(knx) do
+		unclass_processor(value)
 	end
 end
 
@@ -418,22 +424,16 @@ end
 
 function setvalue(address,flags,value) local tt={} tt[1]={} tt[1].address=address tt[1].flags=flags tt[1].value=value gg.setValues(tt) end
 
-function switcher()
-	if cases.flags.flags == 0 then
-		cases.flags.flags = 1
-	else
-		cases.flags.flags = 0
-	end
-end
-
 function apply_memo()
 	if cases.flags.flags == 0 then
 		if cases.memoize.stores[cases.current]['methods'] ~= nil then
+			gg.alert('5: stores methods: ' .. tostring(cases.memoize.stores[cases.current]['methods']))
 			for key, value in ipairs(cases.memoize.stores[cases.current]['methods']) do
 				Il2cpp.PatchesAddress(value.address, value.value)
 			end
 		end
 		if cases.memoize.stores[cases.current]['fields'] ~= nil then
+			gg.alert('5: stores fields: ' .. tostring(cases.memoize.stores[cases.current]['fields']))
 			for key, value in ipairs(cases.memoize.stores[cases.current]['fields']) do
 				if value.flags == 99 then
 					local str = Il2cpp.String.From(value.address)
@@ -441,34 +441,34 @@ function apply_memo()
 						str:EditString(value.value)
 					end
 				else
-					local changes_field  = {
+					local changes_field  = {{
 						address = value.address,
 						value = value.value,
 						flags = value.flags
-					}
+					}}
 					gg.setValues(changes_field)
 				end
 			end
 		end
 	else
-		if cases.memoize.restore[cases.current]['methods'] ~= nil then
-			for key, value in ipairs(cases.memoize.restore[cases.current]['methods']) do
+		if cases.memoize.restores[cases.current]['methods'] ~= nil then
+			for key, value in ipairs(cases.memoize.restores[cases.current]['methods']) do
 				Il2cpp.PatchesAddress(value.address, value.value)
 			end
 		end
-		if cases.memoize.restore[cases.current]['fields'] ~= nil then
-			for key, value in ipairs(cases.memoize.restore[cases.current]['fields']) do
+		if cases.memoize.restores[cases.current]['fields'] ~= nil then
+			for key, value in ipairs(cases.memoize.restores[cases.current]['fields']) do
 				if value.flags == 99 then
 					local str = Il2cpp.String.From(value.address)
 					if str then
 						str:EditString(value.value)
 					end
 				else
-					local changes_field  = {
+					local changes_field  = {{
 						address = value.address,
 						value = value.value,
 						flags = value.flags
-					}
+					}}
 					gg.setValues(changes_field)
 				end
 			end
@@ -480,14 +480,16 @@ end
 ---[ SCRIPT ]
 ------------------------------
 function menus()
-	local firstMenu = gg.choice({"Emulator", "AntiCheat", "HeadShot", "HeadShot Reset", "❌EXIT❌"}, nil, "State: " .. tostring(cases.flags.modes))
-	if firstMenu == nil then
+	lists = {"Emulator", "AntiCheat", "Recoil", "HeadShot", "HeadShot Reset", "❌EXIT❌"}
+	local choices = gg.choice(lists, nil, "State: " .. tostring(cases.flags.flags))
+	if choices == nil then
 		cases.flags.icon = false
 		gg.setVisible(false)
 	else
 		cases.flags.icon = false
 		gg.setVisible(false)
-		if firstMenu == 1 then
+		if choices == 1 then
+			--current, unclass, mode, flag, reset
 			so = gg.getRangesList('libanogs.so')[1].start
 			setvalue(so + "0x114A28",32,"h 00 20 70 47")
 			setvalue(so + "0x115334",32,"h 00 20 70 47")
@@ -498,21 +500,19 @@ function menus()
 			setvalue(so + "0x38712",32,"h 09 00 09 00")
 			setvalue(so + "0x38720",32,"h 09 00 09 00")
 			dofile('./emulator.cfg')
-			processor()
-		elseif firstMenu == 2 then
+			processor(lists[choices], 0, 0, 0, 0)
+		elseif choices == 2 then
 			dofile('./magic.cfg')
-			processor()
-		elseif firstMenu == 3 then
+			processor(lists[choices], 0, 0, 0, 0)
+		elseif choices == 3 then
+			dofile('./norecoil.cfg')
+			processor(lists[choices], 0, 0, 0, 0)
+		elseif choices == 4 then
 			dofile('./autohs.cfg')
-			cases.current = 'autohs'
-			cases.flags.modes = 1
-			processor()
-		elseif firstMenu == 4 then
+			processor(lists[choices], 0, 1, cases.flags.flags, 0)
+		elseif choices == 5 then
 			dofile('./autohs.cfg')
-			cases.current = 'autohs'
-			cases.memoize.stores[cases.current] = {}
-			cases.memoize.restore[cases.current] = {}
-			processor()
+			processor(lists[choices], 0, 1, 0, 1)
 		else
 			os.exit()
 		end
