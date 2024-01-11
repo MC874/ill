@@ -286,6 +286,64 @@ function methods_memoize(cpp, knx)
 	end
 	apply_memo()
 end
+------------------------------
+---[ HOOK PROCESSOR ]
+------------------------------
+function hook_methods_processor(knx)
+	local classes = Il2cpp.FindClass( {{Class = knx.class_name,  MethodsDump = true, FieldsDump = true}} )
+	for key, val in ipairs(val) do
+		for key, value in ipairs(classes) do
+			for k, v in ipairs(knx.hook_methods) do
+				if Type(v.target) == 'table' then
+					for key, val in ipairs(v.target)
+						local target = {}
+						local jump
+						for obj, method in ipairs(value.Methods) do
+							if method.MethodName == val then
+								target[#target + 1] = '0x' .. tostring(method.AddressInMemory)
+							end
+							if method.MethodName == knx.jump then
+								jump = '0x' .. tostring(method.AddressInMemory)
+							end
+						end
+						hook_methods(target, jump)
+					end
+				else
+					local target = {}
+					local jump
+					for obj, method in ipairs(value.Methods) do
+						if method.MethodName == knx.target then
+							target[#target + 1] = '0x' .. tostring(method.AddressInMemory)
+						end
+						if method.MethodName == knx.jump then
+							jump = '0x' .. tostring(method.AddressInMemory)
+						end
+					end
+					hook_methods(target, jump)
+				end
+			end
+		end
+	end
+end
+
+function hook_methods(target, jump)
+	for k, v in ipairs(target) do
+		offset = displace(v, jump)
+		change_method = {{
+			address = v,
+			value = '~A B ' .. offset,
+			flags = gg.TYPE_DWORD
+		},
+		{
+			address = v + 4,
+			value = '~A BX LR',
+			flags = gg.TYPE_DWORD
+		{
+
+		}}
+		gg.setValues(change_method)
+	end
+end
 
 ------------------------------
 ---[ UNCLASSER ]
@@ -297,6 +355,9 @@ function unclass_processor(knx)
 		unmethods(knx)
 	elseif (knx.flags == 2) or (cases.flags.unclass == 2) then
 		unfields(knx)
+	elseif (knx.flags == 3) or (cases.flags.unclass == 3) or (knx.hook_methods) then
+		hook_methods(knx)
+	end
 	else
 		if knx.methods then
 			methods_processor(knx)
@@ -323,7 +384,7 @@ function unmethods(knx)
 				local methods = cpp:GetMethodsWithName(value.MethodName)
 				if #methods > 0 then
 					for i = 1, #methods do
-						if v.Type == "bool" then
+						if v.Type == "bool" or v.Type == 'int' then
 							Il2cpp.PatchesAddress(tonumber(methods[i].AddressInMemory, 16), "\x00\x00\x00\xE3\x1E\xFF\x2F\xE1")
 						elseif v.Type == "float" then
 							Il2cpp.PatchesAddress(tonumber(methods[i].AddressInMemory, 16), "\x00\x00\x00\xE3\x10\x0A\x00\xEE\xC0\x0A\xB8\xEE\x10\x0A\x10\xEE\x1E\xFF\x2F\xE1")
@@ -424,31 +485,29 @@ end
 
 function setvalue(address,flags,value) local tt={} tt[1]={} tt[1].address=address tt[1].flags=flags tt[1].value=value gg.setValues(tt) end
 
+function displace(target, jump)
+	local calls
+	if tonumber(target) > tonumber(jump) then
+		local offset = tonumber(target) - tonumber(jump)
+		if offset / 1002400 < 32 then
+			calls = "-" .. string.upper(string.format("%x", offset))
+		end
+	else
+		local offset = tonumber(jump) - tonumber(target)
+		calls = "+" .. hex_o(offset)
+	end
+	return offset
+end
+
 function apply_memo()
 	if cases.flags.flags == 0 then
 		if cases.memoize.stores[cases.current]['methods'] ~= nil then
-			gg.alert('5: stores methods: ' .. tostring(cases.memoize.stores[cases.current]['methods']))
 			for key, value in ipairs(cases.memoize.stores[cases.current]['methods']) do
 				Il2cpp.PatchesAddress(value.address, value.value)
 			end
 		end
 		if cases.memoize.stores[cases.current]['fields'] ~= nil then
-			gg.alert('5: stores fields: ' .. tostring(cases.memoize.stores[cases.current]['fields']))
-			for key, value in ipairs(cases.memoize.stores[cases.current]['fields']) do
-				if value.flags == 99 then
-					local str = Il2cpp.String.From(value.address)
-					if str then
-						str:EditString(value.value)
-					end
-				else
-					local changes_field  = {{
-						address = value.address,
-						value = value.value,
-						flags = value.flags
-					}}
-					gg.setValues(changes_field)
-				end
-			end
+			gg.setValues(cases.memoize.stores[cases.current]['fields'])
 		end
 	else
 		if cases.memoize.restores[cases.current]['methods'] ~= nil then
@@ -457,21 +516,7 @@ function apply_memo()
 			end
 		end
 		if cases.memoize.restores[cases.current]['fields'] ~= nil then
-			for key, value in ipairs(cases.memoize.restores[cases.current]['fields']) do
-				if value.flags == 99 then
-					local str = Il2cpp.String.From(value.address)
-					if str then
-						str:EditString(value.value)
-					end
-				else
-					local changes_field  = {{
-						address = value.address,
-						value = value.value,
-						flags = value.flags
-					}}
-					gg.setValues(changes_field)
-				end
-			end
+			gg.setValues(cases.memoize.restores[cases.current]['fields'])
 		end
 	end
 end
@@ -503,7 +548,7 @@ function menus()
 			processor(lists[choices], 0, 0, 0, 0)
 		elseif choices == 2 then
 			dofile('./magic.cfg')
-			processor(lists[choices], 0, 0, 0, 0)
+			processor(lists[choices], 1, 0, 0, 0)
 		elseif choices == 3 then
 			dofile('./norecoil.cfg')
 			processor(lists[choices], 0, 0, 0, 0)
