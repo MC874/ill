@@ -55,7 +55,6 @@ function fields_patch(objects, cpp, knx)
 							}}
 							gg.setValues(changes_field)
 						else
-							gg.alert('correct')
 							local changes_field = {{
 								address = objects[i].address + tonumber(value.Offset, 16),
 								flags = knx.flags,
@@ -292,6 +291,7 @@ function methods_memoize(cpp, knx)
 	end
 	apply_memo()
 end
+
 ------------------------------
 ---[ HOOK PROCESSOR ]
 ------------------------------
@@ -340,9 +340,52 @@ function hook_methods(target, jump)
 			address = v,
 			value = '~A B ' .. offset,
 			flags = gg.TYPE_DWORD
+		},
+		{
+			address = v + 4,
+			value = '~A BX LR',
+			flags = gg.TYPE_DWORD
 		}}
 		
 		gg.setValues(change_method)
+	end
+end
+
+------------------------------
+---[ ENUMERATOR ]
+------------------------------
+function enumerator(knx)
+	local classes = Il2cpp.FindClass( {{Class = knx.class_name,  MethodsDump = true, FieldsDump = true}} )
+	for k, v in ipairs(classes) do
+		for k, v in ipairs(v) do
+			if v.Fields == nil then
+				break
+			end
+			local objects = Il2cpp.FindObject({tonumber(v.ClassAddress, 16)})
+			for obj, field in ipairs(knx.fields) do
+				for key, val in ipairs(v.Fields) do
+					if val.FieldName == field.field_name then
+						local stores = {}
+						for keys, value in ipairs(objects) do
+							for keys, value in ipairs(value) do
+								stores[#stores + 1] = {
+									address = value.address + tonumber(val.Offset, 16),
+									flags = field.flags,
+									value = gg.getValues({{address = value.address + tonumber(val.Offset, 16), flags = field.flags}})[1].value
+								}
+							end
+						end
+						for k, v in ipairs(field.targets) do
+							gg.loadResults(stores)
+							gg.refineNumber(v, gg.TYPE_DWORD)
+							gg.getResults(gg.getResultsCount())
+							gg.editAll(field.patches, field.flags)
+							gg.clearResults()
+						end
+					end
+				end
+			end
+		end
 	end
 end
 
@@ -358,6 +401,8 @@ function unclass_processor(knx)
 		unfields(knx)
 	elseif (knx.flags == 3) or (cases.flags.unclass == 3) then
 		hook_methods_processor(knx)
+	elseif (knx.flags == 4) or (cases.flags.unclass == 4) then
+		enumerator(knx)
 	else
 		if knx.methods then
 			methods_processor(knx)
@@ -382,11 +427,11 @@ function unmethods(knx)
 			end
 			for key, value in ipairs(cpp.Methods) do
 				if value.Type == "bool" or value.Type == 'int' then
-					Il2cpp.PatchesAddress(tonumber(methods[i].AddressInMemory, 16), "\x00\x00\x00\xE3\x1E\xFF\x2F\xE1")
+					Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\x00\xE3\x1E\xFF\x2F\xE1")
 				elseif value.Type == "float" then
-					Il2cpp.PatchesAddress(tonumber(methods[i].AddressInMemory, 16), "\x00\x00\x00\xE3\x10\x0A\x00\xEE\xC0\x0A\xB8\xEE\x10\x0A\x10\xEE\x1E\xFF\x2F\xE1")
+					Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\x00\xE3\x10\x0A\x00\xEE\xC0\x0A\xB8\xEE\x10\x0A\x10\xEE\x1E\xFF\x2F\xE1")
 				else
-					Il2cpp.PatchesAddress(tonumber(methods[i].AddressInMemory, 16), "\x00\x00\xA0\xE1\x1E\xFF\x2F\xE1")
+					Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\xA0\xE1\x1E\xFF\x2F\xE1")
 				end
 			end
 		end
@@ -528,7 +573,7 @@ end
 ---[ SCRIPT ]
 ------------------------------
 function menus()
-	lists = {"Emulator", "AntiCheat", "Recoil", "HeadShot", "HeadShot Reset", "❌EXIT❌"}
+	lists = {"Emulator", "AntiCheat", "Recoil", "HeadShot", "Unclasser", "Experimental", "❌EXIT❌"}
 	local choices = gg.choice(lists, nil, "State: " .. tostring(cases.flags.flags))
 	if choices == nil then
 		cases.flags.icon = false
@@ -548,19 +593,22 @@ function menus()
 			setvalue(so + "0x38712",32,"h 09 00 09 00")
 			setvalue(so + "0x38720",32,"h 09 00 09 00")
 			dofile('./emulator.cfg')
-			processor(lists[choices], 4, 0, 0, 0)
+			processor(lists[choices], 5, 0, 0, 0)
 		elseif choices == 2 then
 			dofile('./anticheat.cfg')
 			processor(lists[choices], 3, 0, 0, 0)
 		elseif choices == 3 then
 			dofile('./norecoil.cfg')
-			processor(lists[choices], 4, 0, 0, 0)
+			processor(lists[choices], 5, 0, 0, 0)
 		elseif choices == 4 then
 			dofile('./autohs.cfg')
-			processor(lists[choices], 4, 1, cases.flags.flags, 0)
+			processor(lists[choices], 4, 0, 0, 0)
 		elseif choices == 5 then
-			dofile('./autohs.cfg')
-			processor('HeadShot', 4, 1, 0, 1)
+			dofile('./magic.cfg')
+			processor(lists[choices], 1, 0, 0, 0)
+		elseif choices == 6 then
+			dofile('./experimental.lua')
+			processor(lists[choices], 3, 0, 0, 0)
 		else
 			os.exit()
 		end
