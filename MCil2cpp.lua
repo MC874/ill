@@ -129,7 +129,7 @@ function fields_memoize(objects, cpp, knx)
 					if knx.original == nil then
 						cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = {
 							address = objects[i].address + tonumber(value.Offset, 16),
-							value = gg.getValues({{address = objects[i].address + tonumber(value.offset, 16), flags = knx.flags}})[1].value,
+							value = gg.getValues({{address = objects[i].address + tonumber(value.Offset, 16), flags = knx.flags}})[1].value,
 							flags = knx.flags
 						}
 					elseif type(knx.original) == 'table' then
@@ -340,11 +340,6 @@ function hook_methods(target, jump)
 			address = v,
 			value = '~A B ' .. offset,
 			flags = gg.TYPE_DWORD
-		},
-		{
-			address = v + 4,
-			value = '~A BX LR',
-			flags = gg.TYPE_DWORD
 		}}
 		
 		gg.setValues(change_method)
@@ -365,22 +360,37 @@ function enumerator(knx)
 			for obj, field in ipairs(knx.fields) do
 				for key, val in ipairs(v.Fields) do
 					if val.FieldName == field.field_name then
-						local stores = {}
-						for keys, value in ipairs(objects) do
-							for keys, value in ipairs(value) do
-								stores[#stores + 1] = {
-									address = value.address + tonumber(val.Offset, 16),
-									flags = field.flags,
-									value = gg.getValues({{address = value.address + tonumber(val.Offset, 16), flags = field.flags}})[1].value
-								}
+						if field.flags == 99 then
+							for keys, value in ipairs(objects) do
+								for keys, value in ipairs(value) do
+									local il2cppstr = Il2cpp.String.From(value.address + tonumber(val.Offset, 16))
+									for keys, value in ipairs(field.targets) do
+										if il2cppstr then
+											if il2cppstr:ReadString() == value then
+												il2cppstr:EditString(field.patches)
+											end
+										end
+									end
+								end
 							end
-						end
-						for k, v in ipairs(field.targets) do
-							gg.loadResults(stores)
-							gg.refineNumber(v, gg.TYPE_DWORD)
-							gg.getResults(gg.getResultsCount())
-							gg.editAll(field.patches, field.flags)
-							gg.clearResults()
+						else
+							local stores = {}
+							for keys, value in ipairs(objects) do
+								for keys, value in ipairs(value) do
+									stores[#stores + 1] = {
+										address = value.address + tonumber(val.Offset, 16),
+										flags = field.flags,
+										value = gg.getValues({{address = value.address + tonumber(val.Offset, 16), flags = field.flags}})[1].value
+									}
+								end
+							end
+							for k, v in ipairs(field.targets) do
+								gg.loadResults(stores)
+								gg.refineNumber(v, gg.TYPE_DWORD)
+								gg.getResults(gg.getResultsCount())
+								gg.editAll(field.patches, field.flags)
+								gg.clearResults()
+							end
 						end
 					end
 				end
@@ -500,7 +510,7 @@ function processor(current, declass, mode, flag, reset)
 		elseif (cases.memoize.stores[cases.current] ~= nil) or (reset == 0) then
 			if cases.flags.flags == 0 then
 				cases.flags.flags = 1
-			else
+			elseif cases.flags.flags == 1 then
 				cases.flags.flags = 0
 			end
 			flags = true
@@ -573,7 +583,7 @@ end
 ---[ SCRIPT ]
 ------------------------------
 function menus()
-	lists = {"Emulator", "AntiCheat", "Recoil", "HeadShot", "Unclasser", "Experimental", "❌EXIT❌"}
+	lists = {"Emulator", "Recoil", "HeadShot", "AntiCheat", "Skill", "Rapid Fire", "Crosshair", "Speed", "Combine", "Experimental", "❌EXIT❌"}
 	local choices = gg.choice(lists, nil, "State: " .. tostring(cases.flags.flags))
 	if choices == nil then
 		cases.flags.icon = false
@@ -595,20 +605,46 @@ function menus()
 			dofile('./emulator.cfg')
 			processor(lists[choices], 5, 0, 0, 0)
 		elseif choices == 2 then
-			dofile('./anticheat.cfg')
-			processor(lists[choices], 3, 0, 0, 0)
-		elseif choices == 3 then
 			dofile('./norecoil.cfg')
 			processor(lists[choices], 5, 0, 0, 0)
-		elseif choices == 4 then
+		elseif choices == 3 then
 			dofile('./autohs.cfg')
 			processor(lists[choices], 4, 0, 0, 0)
-		elseif choices == 5 then
+		elseif choices == 4 then
 			dofile('./magic.cfg')
 			processor(lists[choices], 1, 0, 0, 0)
-		elseif choices == 6 then
-			dofile('./experimental.lua')
+			dofile('./magic-hook.lua')
 			processor(lists[choices], 3, 0, 0, 0)
+		elseif choices == 5 then
+			dofile('./skill.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+		elseif choices == 6 then
+			dofile('./bullets.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+		elseif choices == 7 then
+			dofile('./crosshair.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+		elseif choices == 8 then
+			dofile('./speed.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+		elseif choices == 9 then
+			dofile('./autohs.cfg')
+			processor(lists[choices], 4, 0, 0, 0)
+			dofile('./skill.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+			dofile('./bullets.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+			dofile('./crosshair.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+			dofile('./speed.cfg')
+			processor(lists[choices], 5, 0, 0, 0)
+			dofile('./playerid.cfg')
+			processor(lists[choices], 4, 0, 0, 0)
+			dofile('./uid.cfg')
+			processor(lists[choices], 4, 0, 0, 0)
+		elseif choices == 10 then
+			dofile('./experimental.lua')
+			processor(lists[choices], 5, 0, 0, 0)
 		else
 			os.exit()
 		end
