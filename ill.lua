@@ -78,8 +78,7 @@ function field_memoize(ill, field, knx)
 			}
 		end
 	end
-	cases.flags.flags = false
-	apply_memo()
+	gg.setValues(cases.memoize.stores[cases.current]['fields'])
 end
 
 function field_enum(ill, field, knx)
@@ -484,8 +483,9 @@ function method_memoize(ill, knx)
 			}
 		end
 	end
-	cases.flags.flags = false
-	apply_memo()
+	for key, value in ipairs(cases.memoize.stores[cases.current]['methods']) do
+		Il2cpp.PatchesAddress(value.address, value.value)
+	end
 end
 
 function method_hook(ill, knx)
@@ -539,11 +539,6 @@ end
 ------------------------------
 ---[ UNCLASSER ]
 ------------------------------
-function unclass(knx)
-	unmethod(knx)
-	unfield(knx)
-end
-
 function unfield(ill)
 	for keys, value in ipairs(ill) do
 		for key, val in ipairs(value) do
@@ -585,20 +580,26 @@ function unfield(ill)
 	end
 end
 
-function unmethods(knx)
-	local classes = Il2cpp.FindClass( {{Class = knx.class_name,  MethodsDump = true, FieldsDump = true}} )
-	for k, v in ipairs(classes) do
-		for k, cpp in ipairs(v) do
-			if cpp.Methods == nil then
-				break
-			end
-			for key, value in ipairs(cpp.Methods) do
-				if value.Type == "bool" or value.Type == 'int' then
-					Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\x00\xE3\x1E\xFF\x2F\xE1")
-				elseif value.Type == "float" then
-					Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\x00\xE3\x10\x0A\x00\xEE\xC0\x0A\xB8\xEE\x10\x0A\x10\xEE\x1E\xFF\x2F\xE1")
-				else
-					Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\xA0\xE1\x1E\xFF\x2F\xE1")
+function unmethod(ill)
+	for keys, value in ipairs(ill) do
+		for key, val in ipairs(value) do
+			for k, v in ipairs(val.Methods) do
+				local classes = Il2cpp.FindClass( {{Class = val.class_name,  MethodsDump = true, FieldsDump = true}} )
+				for k, v in ipairs(classes) do
+					for k, cpp in ipairs(v) do
+						if cpp.Methods == nil then
+							break
+						end
+						for key, value in ipairs(cpp.Methods) do
+							if value.Type == "bool" or value.Type == 'int' then
+								Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\x00\xE3\x1E\xFF\x2F\xE1")
+							elseif value.Type == "float" then
+								Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\x00\xE3\x10\x0A\x00\xEE\xC0\x0A\xB8\xEE\x10\x0A\x10\xEE\x1E\xFF\x2F\xE1")
+							else
+								Il2cpp.PatchesAddress(tonumber(value.AddressInMemory, 16), "\x00\x00\xA0\xE1\x1E\xFF\x2F\xE1")
+							end
+						end
+					end
 				end
 			end
 		end
@@ -606,9 +607,36 @@ function unmethods(knx)
 end
 
 ------------------------------
+---[ Hacker House Method Patching Library ]
+------------------------------
+
+function methode(ill)
+	if ill.voidHook then
+		HackersHouse.voidHook(ill.patches)
+	elseif ill.hijackParameters then
+		HackersHouse.hijackParameters(ill.patches)
+	elseif ill.disableMethod then
+		HackersHouse.disableMethod(ill.patches)
+	elseif ill.returnValue then
+		HackersHouse.returnValue(ill.patches)
+	elseif ill.callAnotherMethod then
+		HackersHouse.callAnotherMethod(ill.patches)
+	elseif ill.hexPatch then
+		HackersHouse.hexPatch(ill.patches)
+	end
+end
+
+------------------------------
 ---[ SCRIPT PROCESSOR ]
 ------------------------------
-function processor(knx)
+function processor(knx, choice)
+	cases.current = choice
+	if cases.memoize.stores[cases.current] then
+		flags = screens()
+		if flags then
+			return
+		end
+	end
 	for keys, value in ipairs(knx) do
 		if value.class then
 			local classes = Il2cpp.FindClass(  {{Class = value.class, MethodsDump = true, FieldsDump = true}} )
@@ -648,12 +676,124 @@ function processor(knx)
 					end
 				end
 			end
-		else
-			if value.unfield then
-				local classes = Il2cpp.FindClass(  {{Class = value.unfield, FieldsDump = true}} )
-				unfield(classes)
+		elseif value.unclass then
+			local classes = Il2cpp.FindClass(  {{Class = value.unclass, MethodsDump = true, FieldsDump = true}} )
+			unfield(classes)
+			unmethod(classes)
+		elseif value.unfield then
+			unfield(Il2cpp.FindClass(  {{Class = value.unfield, MethodsDump = true, FieldsDump = true}} ))
+		elseif value.unmethod then
+			unmethod(Il2cpp.FindClass(  {{Class = value.unmethod, MethodsDump = true, FieldsDump = true}} ))
+		elseif value.methode then
+			methode(value)
+		end
+	end
+end
+
+function screens()
+	lists = { cases.current .. ' On', cases.current .. ' Off', cases.current .. ' Reset', 'Exit'}
+	local choices = gg.choice(lists, nil, nil)
+	if choices == nil then
+		cases.flags.icon = false
+		gg.setVisible(false)
+		return
+	else
+		cases.flags.icon = false
+		gg.setVisible(false)
+		if choices == 1 then
+			if cases.memoize.stores[cases.current]['methods'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['methods']) do
+					Il2cpp.PatchesAddress(value.address, value.value)
+				end
 			end
-			unclasser(value)
+			if cases.memoize.stores[cases.current]['fields'] ~= nil then
+				gg.setValues(cases.memoize.stores[cases.current]['fields'])
+			end
+			if cases.memoize.stores[cases.current]['voidHook'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['voidHook']) do
+					HackersHouse.voidHook(value)
+				end
+			end
+			if cases.memoize.stores[cases.current]['voidHook'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['voidHook']) do
+					HackersHouse.voidHook(value)
+				end
+			end
+			if cases.memoize.stores[cases.current]['hijackParameters'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['hijackParameters']) do
+					HackersHouse.hijackParameters(value)
+				end
+			end
+			if cases.memoize.stores[cases.current]['disableMethod'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['disableMethod']) do
+					HackersHouse.disableMethod(value)
+				end
+			end
+			if cases.memoize.stores[cases.current]['returnValue'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['returnValue']) do
+					HackersHouse.returnValue(value)
+				end
+			end
+			if cases.memoize.stores[cases.current]['callAnotherMethod'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['callAnotherMethod']) do
+					HackersHouse.callAnotherMethod(value)
+				end
+			end
+			if cases.memoize.stores[cases.current]['hexPatch'] ~= nil then
+				for key, value in ipairs(cases.memoize.stores[cases.current]['hexPatch']) do
+					HackersHouse.hexPatch(value)
+				end
+			end
+			return true
+		elseif choices == 2 then
+			if cases.memoize.restores[cases.current]['methods'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['methods']) do
+					Il2cpp.PatchesAddress(value.address, value.value)
+				end
+			end
+			if cases.memoize.restores[cases.current]['fields'] ~= nil then
+				gg.setValues(cases.memoize.restores[cases.current]['fields'])
+			end
+			if cases.memoize.restores[cases.current]['voidHook'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['voidHook']) do
+					HackersHouse.voidHook(value)
+				end
+			end
+			if cases.memoize.restores[cases.current]['voidHook'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['voidHook']) do
+					HackersHouse.voidHook(value)
+				end
+			end
+			if cases.memoize.restores[cases.current]['hijackParameters'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['hijackParameters']) do
+					HackersHouse.hijackParameters(value)
+				end
+			end
+			if cases.memoize.restores[cases.current]['disableMethod'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['disableMethod']) do
+					HackersHouse.disableMethod(value)
+				end
+			end
+			if cases.memoize.restores[cases.current]['returnValue'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['returnValue']) do
+					HackersHouse.returnValue(value)
+				end
+			end
+			if cases.memoize.restores[cases.current]['callAnotherMethod'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['callAnotherMethod']) do
+					HackersHouse.callAnotherMethod(value)
+				end
+			end
+			if cases.memoize.restores[cases.current]['hexPatch'] ~= nil then
+				for key, value in ipairs(cases.memoize.restores[cases.current]['hexPatch']) do
+					HackersHouse.hexPatch(value)
+				end
+			end
+			return true
+		elseif choices == 3 then
+			return false
+		else
+			return true
 		end
 	end
 end
@@ -704,28 +844,4 @@ function displace(target, jump)
 		calls = "+" .. "0x" .. string.upper(string.format("%x", offset))
 	end
 	return calls
-end
-
-function apply_memo()
-	if cases.flags.flags == false then
-		if cases.memoize.stores[cases.current]['methods'] ~= nil then
-			for key, value in ipairs(cases.memoize.stores[cases.current]['methods']) do
-				Il2cpp.PatchesAddress(value.address, value.value)
-			end
-		end
-		if cases.memoize.stores[cases.current]['fields'] ~= nil then
-			gg.setValues(cases.memoize.stores[cases.current]['fields'])
-		end
-		cases.flags.flags = true
-	else
-		if cases.memoize.restores[cases.current]['methods'] ~= nil then
-			for key, value in ipairs(cases.memoize.restores[cases.current]['methods']) do
-				Il2cpp.PatchesAddress(value.address, value.value)
-			end
-		end
-		if cases.memoize.restores[cases.current]['fields'] ~= nil then
-			gg.setValues(cases.memoize.restores[cases.current]['fields'])
-		end
-		cases.flags.flags = false
-	end
 end
