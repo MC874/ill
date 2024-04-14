@@ -115,12 +115,14 @@ function field_enum(ill, field, knx)
 			end
 		end
 	end
-	for k, v in ipairs(targets) do
-		gg.loadResults(stores)
-		gg.refineNumber(v, valtype)
-		gg.getResults(gg.getResultsCount())
-		gg.editAll(values, valtype)
-		gg.clearResults()
+	if stores ~= nil then
+		for k, v in ipairs(targets) do
+			gg.loadResults(stores)
+			gg.refineNumber(v, valtype)
+			gg.getResults(gg.getResultsCount())
+			gg.editAll(values, valtype)
+			gg.clearResults()
+		end
 	end
 end
 
