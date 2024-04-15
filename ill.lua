@@ -8,7 +8,7 @@ Il2cpp()
 --modes0: patch, modes1: memoize
 --flags0: patch, flags1: reverts
 --icon: game guardian floating icon state
-cases = {current = "normal", memoize = {stores = {}, restores = {}}, flags = {['icon'] = false}}
+cases = {current = "normal", memoize = {stores = {}, restores = {}}, flags = {['icon'] = false, ['switcher'] = false}}
 
 ------------------------------
 ---[ FIELDS PROCESSOR ]
@@ -123,6 +123,61 @@ function field_enum(ill, field, knx)
 			gg.editAll(values, valtype)
 			gg.clearResults()
 		end
+	end
+end
+
+function field_enum_memoize(ill, field, knx)
+	if knx.patches[field.Access] ~= nil then
+		valtype = types(knx.patches[field.Access][1])
+		values = knx.patches[field.Access][2]
+		targets = knx.patches[field.Access[3]]
+	else
+		valtype = types(knx.patches[1])
+		values = knx.patches[2]
+		targets = knx.patches[3]
+	end
+	if cases.memoize.stores[cases.current] == nil then
+		cases.memoize.stores[cases.current] = {}
+		cases.memoize.restores[cases.current] = {}
+		cases.memoize.restores[cases.current]['fields'] = {}
+		cases.memoize.stores[cases.current]['fields'] = {}
+	end
+	stores = {}
+	objects = Il2cpp.FindObject({tonumber(ill.ClassAddress, 16)})
+	for m, object in ipairs(objects) do
+		for m, object in ipairs(object) do
+			if valtype == 'str' then
+				local il2cppstr = Il2cpp.String.From(object.address + tonumber(field.Offset, 16))
+				if il2cppstr then
+					for keys, value in ipairs(targets) do
+						if il2cppstr:ReadString() == value then
+							il2cppstr:EditString(values)
+						end
+					end
+				end
+			else
+				stores[#stores + 1] = {
+					address = object.address + tonumber(field.Offset, 16),
+					flags = valtype,
+					value = gg.getValues({{address = object.address + tonumber(field.Offset, 16), flags = valtype}})[1].value
+				}
+			end
+		end
+	end
+	if stores ~= nil then
+		for k, v in ipairs(targets) do
+			gg.loadResults(stores)
+			gg.refineNumber(v, valtype)
+			results = gg.getResults(gg.getResultsCount())
+			for keys, value in ipairs(results) do
+				cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = value
+				cases.memoize.stores[cases.current]['fields'][#cases.memoize.stores[cases.current]['fields'] + 1] = value
+			end
+			for keys, value in ipairs(cases.memoize.stores[cases.current]['fields']) do
+				value.value = values
+			end
+		end
+		memoize_apply()
 	end
 end
 
@@ -697,6 +752,8 @@ function processor(knx, choice)
 									field_patch(h, j, val)
 								elseif j.FieldName == val.enum then
 									field_enum(h, j, val)
+								elseif j.FieldName == val.enum_memoize then
+									field_enum_memoize(h, j, val)
 								end
 							end
 						end
@@ -891,6 +948,19 @@ end
 
 function setvalue(address,flags,value) local tt={} tt[1]={} tt[1].address=address tt[1].flags=flags tt[1].value=value gg.setValues(tt) end
 
+function switcher()
+	gg.alert(tostring(cases))
+	if cases.memoize.stores[cases.current] then
+		if cases.flags.switcher == true then
+			memoize_apply()
+			cases.flags.switcher = false
+		else
+			memoize_revert()
+			cases.flags.switcher = true
+		end
+	end
+end
+	
 function displace(target, jump)
 	local calls
 	if tonumber(target) > tonumber(jump) then
