@@ -93,7 +93,7 @@ function field_enum(ill, field, knx)
 		values = knx.patches[2]
 		targets = knx.patches[3]
 	end
-	stores = {}
+	cases.memoize.stores_temp = {}
 	objects = Il2cpp.FindObject({tonumber(ill.ClassAddress, 16)})
 	for m, object in ipairs(objects) do
 		for m, object in ipairs(object) do
@@ -107,7 +107,7 @@ function field_enum(ill, field, knx)
 					end
 				end
 			else
-				stores[#stores + 1] = {
+				cases.memoize.stores_temp[#cases.memoize.stores_temp + 1] = {
 					address = object.address + tonumber(field.Offset, 16),
 					flags = valtype,
 					value = gg.getValues({{address = object.address + tonumber(field.Offset, 16), flags = valtype}})[1].value
@@ -115,9 +115,9 @@ function field_enum(ill, field, knx)
 			end
 		end
 	end
-	if stores ~= nil then
+	if cases.memoize.stores_temp ~= nil then
 		for k, v in ipairs(targets) do
-			gg.loadResults(stores)
+			gg.loadResults(cases.memoize.stores_temp)
 			gg.refineNumber(v, valtype)
 			gg.getResults(gg.getResultsCount())
 			gg.editAll(values, valtype)
@@ -142,7 +142,7 @@ function field_enum_memoize(ill, field, knx)
 		cases.memoize.restores[cases.current]['fields'] = {}
 		cases.memoize.stores[cases.current]['fields'] = {}
 	end
-	stores = {}
+	stores_temp = {}
 	objects = Il2cpp.FindObject({tonumber(ill.ClassAddress, 16)})
 	for m, object in ipairs(objects) do
 		for m, object in ipairs(object) do
@@ -156,26 +156,26 @@ function field_enum_memoize(ill, field, knx)
 					end
 				end
 			else
-				stores[#stores + 1] = {
+				table.insert(stores_temp, {
 					address = object.address + tonumber(field.Offset, 16),
 					flags = valtype,
 					value = gg.getValues({{address = object.address + tonumber(field.Offset, 16), flags = valtype}})[1].value
-				}
+				})
 			end
 		end
 	end
-	if stores ~= nil then
+	if stores_temp ~= nil then
 		for k, v in ipairs(targets) do
-			gg.loadResults(stores)
+			gg.loadResults(stores_temp)
 			gg.refineNumber(v, valtype)
 			results = gg.getResults(gg.getResultsCount())
 			for keys, value in ipairs(results) do
-				cases.memoize.restores[cases.current]['fields'][#cases.memoize.restores[cases.current]['fields'] + 1] = value
-				cases.memoize.stores[cases.current]['fields'][#cases.memoize.stores[cases.current]['fields'] + 1] = value
+				table.insert(cases.memoize.restores[cases.current]['fields'], {address = value.address, flags = value.flags, value = tonumber(value.value)})
+				table.insert(cases.memoize.stores[cases.current]['fields'], {address = value.address, flags = value.flags, value = tonumber(value.value)})
 			end
-			for keys, value in ipairs(cases.memoize.stores[cases.current]['fields']) do
-				value.value = values
-			end
+		end
+		for keys, value in ipairs(cases.memoize.stores[cases.current]['fields']) do
+			value.value = values
 		end
 		memoize_apply()
 	end
@@ -949,7 +949,6 @@ end
 function setvalue(address,flags,value) local tt={} tt[1]={} tt[1].address=address tt[1].flags=flags tt[1].value=value gg.setValues(tt) end
 
 function switcher()
-	gg.alert(tostring(cases))
 	if cases.memoize.stores[cases.current] then
 		if cases.flags.switcher == true then
 			memoize_apply()
@@ -960,7 +959,7 @@ function switcher()
 		end
 	end
 end
-	
+
 function displace(target, jump)
 	local calls
 	if tonumber(target) > tonumber(jump) then
