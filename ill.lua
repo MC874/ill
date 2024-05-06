@@ -557,21 +557,27 @@ function method_hook(ill, knx)
 			ends = knx.hook[2]
 		end
 		if value.MethodName == ends then
-			jump = "0x" .. tostring(value.AddressInMemory)
+			if tonumber(value.AddressInMemory) ~= 0 then
+				jump = "0x" .. tostring(value.AddressInMemory)
+			end
 		end
 		if type(targets) == 'table' then
 			for key, val in ipairs(targets) do
 				if value.MethodName == val then
-					target[#target + 1] = '0x' .. tostring(value.AddressInMemory)
+					if tonumber(value.AddressInMemory) ~= 0 then
+						target[#target + 1] = '0x' .. tostring(value.AddressInMemory)
+					end
 				end
 			end
 		else
 			if value.MethodName == targets then
-				target[#target + 1] = '0x' .. tostring(value.AddressInMemory)
+				if tonumber(value.AddressInMemory) ~= 0 then
+					target[#target + 1] = '0x' .. tostring(value.AddressInMemory)
+				end
 			end
 		end
 	end
-	if target and jump then
+	if target ~= nil and jump ~= nil then
 		hook_method(target, jump)
 	end
 end
